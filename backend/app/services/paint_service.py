@@ -12,6 +12,23 @@ class PaintService:
         r = rooms.get(self._c, rid)
         if not r: return None
         return {"room": r, "openings": openings.for_room(self._c, rid)}
+    def clone_room(self, src_id, new_length=None, new_width=None, new_name=None):
+        src = rooms.get(self._c, src_id)
+        if not src: return None
+        length = float(new_length) if new_length is not None else float(src["length"])
+        width = float(new_width) if new_width is not None else float(src["width"])
+        if length <= 0 or width <= 0:
+            raise ValueError("新房间的长和宽必须为正数")
+        name = new_name or f"{src['name']}(克隆)"
+        src_ops = openings.for_room(self._c, src_id)
+        try:
+            new_id = rooms.insert(self._c, name, length, width, src["height"])
+            openings.copy_for(self._c, src_ops, new_id)
+            self._c.commit()
+        except Exception:
+            self._c.rollback()
+            raise
+        return self.room_detail(new_id)
     def settings(self): return settings.get_map(self._c)
     def history(self, limit=50): return runs.list_recent(self._c, limit)
     def estimate(self, room_id, persist, coats=None, coverage=None):
